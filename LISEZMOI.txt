@@ -1,0 +1,20 @@
+RÉTRO JUMP — application autonome
+=================================
+
+1. Créer le projet (dans ton dossier GIT) :
+     flutter create retro_jump --org com.foclabroc --platforms android
+2. Copier le contenu de ce zip DANS le dossier retro_jump\ (écraser si demandé) :
+     lib\ , assets\ , pubspec.yaml , android\app\src\main\...
+3. Supprimer test\widget_test.dart (il teste l'appli d'exemple « MyApp »)
+4. Dans retro_jump\ :
+     flutter pub get
+     dart run flutter_launcher_icons
+     flutter run --release -d PBNRS4LZINMV694H
+     flutter build apk --release
+   APK : build\app\outputs\flutter-apk\app-release.apk
+
+Langue : français si le téléphone est en français, anglais sinon.
+Classement : le même que Foclabroc Remote (même serveur Supabase).
+Mise à jour du jeu : recopier lib\screens\jump_screen.dart (FR) -> lib\fr\jump_screen.dart
+et la version EN -> lib\en\jump_screen.dart, puis refaire les 4 corrections d'import
+et de marges (ou me demander).
