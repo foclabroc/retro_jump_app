@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'fr/jump_screen.dart' as fr;
 import 'en/jump_screen.dart' as en;
+import 'leaderboard_service.dart';
+import 'update_check.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RÉTRO JUMP — application autonome (même jeu que dans Foclabroc Remote)
@@ -22,6 +24,9 @@ void main() async {
   ]);
   // Écran toujours allumé (le jeu peut se jouer à l'inclinaison, sans toucher l'écran)
   await WakelockPlus.enable();
+  // Version affichée dans les Réglages du jeu + bouton « Vérifier les mises à jour »
+  lbAppVersion = kRetroJumpVersion;
+  lbCheckUpdate = () async => await updateGateKey.currentState?.check(manual: true) ?? 2;
   runApp(const RetroJumpApp());
 }
 
@@ -83,7 +88,11 @@ class RetroJumpApp extends StatelessWidget {
           ),
         ),
       ),
-      home: _isFrench ? const fr.JumpScreen() : const en.JumpScreen(),
+      home: UpdateGate(
+        key: updateGateKey,
+        french: _isFrench,
+        child: _isFrench ? const fr.JumpScreen() : const en.JumpScreen(),
+      ),
     );
   }
 }
