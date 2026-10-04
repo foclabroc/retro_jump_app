@@ -4,6 +4,36 @@ Historique des versions de l'application autonome (le jeu existe aussi dans [Foc
 
 ---
 
+## v1.0.4+5 — Octobre 2026
+
+> ⚠️ Nécessite le script Supabase **v12** (lancé avant d'installer cette version).
+
+### 🧑 Avatars façon Mii
+- **Créer son avatar** (Réglages → Avatar) : 8 catégories — peau (12), visage (6), coiffure (20), couleur des cheveux (16), yeux (12), bouche (12), accessoire (14), fond (16) — avec miniatures et bouton 🎲 Aléatoire
+- Affiché dans le **classement**, le **chat**, la **fiche joueur** et le **podium** de l'écran de démarrage (le héros reste affiché sans avatar)
+- Le **héros utilisé pour le record** reste visible à côté du score
+- Quelques octets par joueur côté serveur, inclus dans la sauvegarde
+
+### 🎨 Nouveaux contenus
+- **4 thèmes réalistes** : Jungle, Plage, Ville la nuit, Canyon (950 à 1 100 pièces)
+  - Jungle : singes qui se balancent de liane en liane, guirlandes et lianes pendantes
+  - Ville la nuit : avion, montgolfières, hélicoptère avec projecteur, dirigeable à bandeau LED
+- **4 héros avec pouvoir** (600 à 800 pièces) : Manette (bug écrasé = 6 pièces), Portable (logos comptés double), Fantôme (2ᵉ chance gratuite, hors partie du jour), Casque (+25 % d'XP)
+- **4 musiques** : RPG Battle, 8-bit Console, Byte Blast, Game On (1 100 à 1 500 pièces)
+- **16 nouveaux trophées** (68 au total) — l'avancement % tient compte des nouveaux objets
+
+### 🏆 Classement
+- **Jusqu'à 500 joueurs** (« Voir plus ») et bouton **« Ma position »**
+- **Heure de la dernière partie** de chaque joueur (classement et fiche)
+- **Record battu** : au lancement, liste des joueurs qui t'ont dépassé au classement général depuis ta dernière visite (bouton « Voir le classement »)
+
+### ⚙️ Réglages et confort
+- **Intensité des vibrations** : Faible / Normal / Fort
+- Nouveau record : le nom n'est plus demandé si un pseudo est déjà choisi
+- Codes secrets utilisables **3 fois** chacun, résultat affiché dans une fenêtre
+
+---
+
 ## v1.0.3+4 — Octobre 2026
 
 ### 🛡️ Jeu

@@ -1,7 +1,7 @@
 name: retro_jump
 description: Rétro Jump — jeu de saut vertical rétro (classement en ligne, partie du jour)
 publish_to: 'none'
-version: 1.0.3+4
+version: 1.0.4+5
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
