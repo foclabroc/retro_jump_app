@@ -4,6 +4,38 @@ Historique des versions de l'application autonome (le jeu existe aussi dans [Foc
 
 ---
 
+## v1.0.3+4 — Octobre 2026
+
+### 🛡️ Jeu
+- **Bouclier en réserve** — ramasser un bouclier alors qu'un autre est déjà actif le met en réserve (1 au maximum) : bannière « 🛡️ BOUCLIER EN RÉSERVE » et bulle cyan en bas au milieu de l'écran
+  - Bulle grisée tant que le bouclier actif n'a pas servi, puis elle pulse : un appui l'active (l'appui ne fait pas bouger le héros)
+  - Réserve conservée en cas de Continue, perdue en fin de partie
+- Règle du bouclier complétée dans les Réglages
+
+---
+
+## v1.0.2+3 — Octobre 2026
+
+### 🎮 Jeu
+- **Bouclier de 2 s en sortie de turbo** (bonus ou propulsion de départ) : bulle qui clignote, insensible aux bugs
+- **Option Fantôme** (Réglages → Options) : afficher ou non le fantôme du n°1 dans la partie du jour
+- **Sensibilité réglable** (Réglages) : **tactile** 70 à 130 % (vitesse et réactivité du déplacement) et **inclinaison** 50 à 200 % (moins il faut pencher le téléphone) — réglages inclus dans la sauvegarde
+
+### 🎨 Interface
+- **Écran de démarrage** : ciel de nuit étoilé, titre « RÉTRO JUMP », « by foclabroc », héros qui rebondit sur une cartouche et **podium des 3 meilleurs scores** ; « Touche pour commencer » une fois chargé (la roue du jour s'ouvre ensuite)
+- **Barre du bas** :
+  - **Quêtes** (remplace Défis) : 3 onglets **Défis / Trophées / Collection** avec leur compteur ; le bouton 🏆 de l'en-tête ouvre directement les Trophées
+  - **Messages** (remplace Collection) : le chat, avec pastille **NEW** (nouveau message) ou **@** (mention) — le Classement revient à 3 onglets
+- **Compte à rebours** sur la tuile Défis du jour : « ⏳ Fin dans hh:mm:ss » jusqu'à minuit
+- Titre de l'accueil remonté avec la signature **« by foclabroc »**
+
+### 📱 Application
+- **Mise à jour intégrée** : l'APK se télécharge dans l'appli (barre de progression, Annuler) puis l'installateur Android s'ouvre — plus besoin de passer par GitHub (lien GitHub en secours)
+  - Première fois : autoriser « Installer des applis inconnues » pour Rétro Jump
+  - Nouvelle permission `REQUEST_INSTALL_PACKAGES`, dépendance `open_filex`
+
+---
+
 ## v1.0.1+2 — Octobre 2026
 
 ### 🏆 Progression
