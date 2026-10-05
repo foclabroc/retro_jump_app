@@ -6,7 +6,7 @@ Historique des versions de l'application autonome (le jeu existe aussi dans [Foc
 
 ## v1.0.4+5 — Octobre 2026
 
-> ⚠️ Nécessite le script Supabase **v12** (lancé avant d'installer cette version).
+> ⚠️ Nécessite le script Supabase **v13** (lancé avant d'installer cette version).
 
 ### 🧑 Avatars façon Mii
 - **Créer son avatar** (Réglages → Avatar) : 8 catégories — peau (12), visage (6), coiffure (20), couleur des cheveux (16), yeux (12), bouche (12), accessoire (14), fond (16) — avec miniatures et bouton 🎲 Aléatoire
@@ -23,9 +23,23 @@ Historique des versions de l'application autonome (le jeu existe aussi dans [Foc
 - **16 nouveaux trophées** (68 au total) — l'avancement % tient compte des nouveaux objets
 
 ### 🏆 Classement
+- **4 onglets** :
+  - **Défi du jour** : chaque jour, **médailles** d'or, d'argent et de bronze aux 3 premiers (remises à minuit)
+  - **Défi semaine** : classement aux médailles gagnées dans la semaine ; chaque lundi à minuit, **coupes** d'or, d'argent et de bronze aux 3 premiers et **médaille de participation** aux autres joueurs de la semaine
+  - **Défi général** : toutes les récompenses depuis le début (coupes, puis médailles du jour, puis participation)
+  - **Solo** : meilleur score des parties normales — la partie du jour n'y compte plus
+- Coupes affichées à côté du pseudo, palmarès complet sur la fiche joueur
+- **Compte à rebours** de fin du défi du jour et de la semaine dans le classement
+- Accueil : **Record Solo** (meilleur score des parties normales, synchronisé avec le serveur)
+- Au lancement, **explication des nouveaux classements** (case « Ne plus afficher »)
 - **Jusqu'à 500 joueurs** (« Voir plus ») et bouton **« Ma position »**
 - **Heure de la dernière partie** de chaque joueur (classement et fiche)
-- **Record battu** : au lancement, liste des joueurs qui t'ont dépassé au classement général depuis ta dernière visite (bouton « Voir le classement »)
+- **Record battu** : au lancement, liste des joueurs qui t'ont dépassé au classement Solo depuis ta dernière visite
+- Partie du jour : le record affiché en jeu est ton meilleur score **du jour**
+
+### 🎡 Roue de la fortune
+- Lots revus pour la boutique actuelle : **20 à 500 pièces**, **jackpot 1 000 pièces**, bouclier, turbo, départ 1000, rejouer offert et **objet surprise 🎁** (un héros, thème, musique ou traînée encore verrouillé, ou 1 000 pièces si tout est débloqué)
+- Tour supplémentaire : **75 pièces**
 
 ### ⚙️ Réglages et confort
 - **Intensité des vibrations** : Faible / Normal / Fort

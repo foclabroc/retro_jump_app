@@ -14,7 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Version de l'application (identique au pubspec.yaml, sans le « +N »).
-const kRetroJumpVersion = '1.0.4';
+const kRetroJumpVersion = '1.0.5';
 
 const _apiLatest = 'https://api.github.com/repos/foclabroc/retro_jump_app/releases/latest';
 const _releasesPage = 'https://github.com/foclabroc/retro_jump_app/releases/latest';
