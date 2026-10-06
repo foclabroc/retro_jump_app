@@ -37,7 +37,15 @@ const _kChallengesKey = 'jump_challenges';
 const _kChallengeLvlKey = 'jump_challenge_level';
 const _kNeonKey       = 'jump_neon';
 const _kHapticsKey    = 'jump_haptics';
-const _kRulesV2Key    = 'jump_rules_v2_hide'; // explication des classements masquée
+const _kRulesV2Key    = 'jump_rules_v3_hide'; // explication des classements masquée
+const _kHeroGoldKey   = 'jump_hero_gold';     // héros dorés achetés
+const _kHeroGoldOffKey = 'jump_hero_gold_off'; // héros dorés désactivés
+const _heroGoldPrice  = 15000;
+/// Code héros : index + 32 pour la version dorée (envoyé au classement).
+int _heroSafe(int h) {
+  final b = max(h, 0);
+  return (b % 32).clamp(0, _heroCount - 1) + (b >= 32 ? 32 : 0);
+}
 const _kAvatarKey     = 'jump_avatar';     // avatar façon Mii (8 caractères)
 const _kHapticLvlKey  = 'jump_haptic_lvl'; // intensité des vibrations : 0 faible, 1 normale, 2 forte
 const _kTiltKey       = 'jump_tilt';
@@ -762,6 +770,10 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   int _hero = 0;
   int _coins = 0;
   Set<int> _unlocked = {0};
+  Set<int> _goldHeroes = {}; // versions dorées achetées
+  Set<int> _goldOff = {};    // versions dorées désactivées
+  bool get _goldOn => _goldHeroes.contains(_hero) && !_goldOff.contains(_hero);
+  int get _heroCode => _hero + (_goldOn ? 32 : 0);
   Set<String> _completed = {};
   int _challengeLevel = 0;
   int _theme = 0;
@@ -873,11 +885,11 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text('🥇 Daily challenge: the top 3 win a gold, silver or bronze medal (given at midnight).', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
+              child: Text('🥇 Daily challenge: the top 3 win a gold, silver or bronze medal, the others a participation medal (given at midnight).', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text('📅 Weekly challenge: ranked by medals won this week. Every Monday, cups 🏆 for the top 3 and a participation medal for the other players.', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
+              child: Text('📅 Weekly challenge: ranked by medals won this week (participation included). Every Monday, cups 🏆 for the top 3.', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -1013,6 +1025,12 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       if (i != null && i >= 0 && i < _heroCount) unlocked.add(i);
     }
     var hero = (prefs.getInt(_kHeroKey) ?? 0).clamp(0, _heroCount - 1);
+    Set<int> ids(String k) => {
+          for (final x in prefs.getStringList(k) ?? const <String>[])
+            if (int.tryParse(x) case final v? when v >= 0 && v < _heroCount) v
+        };
+    _goldHeroes = ids(_kHeroGoldKey);
+    _goldOff = ids(_kHeroGoldOffKey);
     if (!unlocked.contains(hero)) hero = 0;
     setState(() {
       _bestScore = prefs.getInt(_kBestScoreKey) ?? 0;
@@ -1413,6 +1431,83 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         ]),
       ),
     );
+  }
+
+  // ── Héros dorés ────────────────────────────────────────────────────────
+  Widget _goldHeroCard() {
+    final i = _hero;
+    final owned = _goldHeroes.contains(i);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(4, 10, 4, 0),
+      padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: LinearGradient(colors: [const Color(0xFFFFD54F).withOpacity(0.16), const Color(0xFF1C2230)]),
+        border: Border.all(color: const Color(0xFFFFD54F).withOpacity(0.5)),
+      ),
+      child: Row(children: [
+        SizedBox(width: 56, height: 50, child: CustomPaint(painter: _HeroPreviewPainter(i + 32, 1.0 + _idle.value * 60))),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('✨ Golden ${_heroNames[i]}',
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 14, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text(owned ? 'Seen by everyone in the leaderboards and chat' : 'Golden version, seen by everyone',
+              style: const TextStyle(color: Colors.white54, fontSize: 11)),
+        ])),
+        if (owned)
+          Switch(value: _goldOn, activeColor: const Color(0xFFFFD54F), onChanged: (v) => _setGoldOn(i, v))
+        else
+          ElevatedButton(
+            onPressed: _unlocked.contains(i) ? () => _buyGold(i) : null,
+            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const _CoinIcon(size: 12),
+              const SizedBox(width: 4),
+              Text(_fmtNum(_heroGoldPrice), style: const TextStyle(fontWeight: FontWeight.w800)),
+            ]),
+          ),
+      ]),
+    );
+  }
+
+  Future<void> _setGoldOn(int i, bool on) async {
+    setState(() => on ? _goldOff.remove(i) : _goldOff.add(i));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kHeroGoldOffKey, _goldOff.map((e) => '$e').toList());
+  }
+
+  Future<void> _buyGold(int i) async {
+    final ok = await showDialog<bool>(
+      context: _sheetCtx ?? context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: Text('Golden hero: ${_heroNames[i]}?'),
+        content: Row(children: [
+          SizedBox(width: 56, height: 50, child: CustomPaint(painter: _HeroPreviewPainter(i + 32, 1.0))),
+          const SizedBox(width: 16),
+          Expanded(child: Text('Your hero in gold, with sparkles, seen by everyone in the leaderboards and chat.\n\nPrice: ${_fmtNum(_heroGoldPrice)} coins\nYou have ${_fmtNum(_coins)}.${_coins < _heroGoldPrice ? '\nYou need ${_fmtNum(_heroGoldPrice - _coins)} more coins.' : ''}',
+              style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4))),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(onPressed: _coins >= _heroGoldPrice ? () => Navigator.pop(ctx, true) : null, child: const Text('Buy')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted || _coins < _heroGoldPrice) return;
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _coins -= _heroGoldPrice;
+      _goldHeroes.add(i);
+      _goldOff.remove(i);
+    });
+    await prefs.setInt(_kCoinsKey, _coins);
+    await prefs.setStringList(_kHeroGoldKey, _goldHeroes.map((e) => '$e').toList());
+    await prefs.setStringList(_kHeroGoldOffKey, _goldOff.map((e) => '$e').toList());
+    QuizAudio.win();
+    _snack('✨ Golden ${_heroNames[i]} unlocked!', ok: true);
   }
 
   Future<void> _selectHero(int i) async {
@@ -2345,6 +2440,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       builder: (_) => _JumpGame(
         bestScore: best,
         hero: _hero,
+        goldHero: _goldOn,
         theme: _theme,
         trail: _trail,
         haptics: _haptics,
@@ -2543,7 +2639,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                               animation: _idle,
                               builder: (_, __) => SizedBox(
                                 width: 130, height: 112,
-                                child: CustomPaint(painter: _HeroPreviewPainter(_hero, 0.05 + _idle.value * 60)),
+                                child: CustomPaint(painter: _HeroPreviewPainter(_heroCode, 0.05 + _idle.value * 60)),
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -2666,7 +2762,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                },
                child: GestureDetector(
                  onTap: _endSplash,
-                 child: _SplashView(hero: _hero, loading: _loading, podium: _podium, podiumTitle: 'TOP SCORES',
+                 child: _SplashView(hero: _heroCode, loading: _loading, podium: _podium, podiumTitle: 'TOP SCORES',
                      title1: 'RETRO', title2: 'JUMP', loadingText: 'Loading…', tapText: 'Tap to start'),
                ),
              ),
@@ -2744,7 +2840,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   }
 
   void _openSheet(String title, IconData icon, Color color, Widget Function(Color accent) body,
-      {bool showCoins = true}) {
+      {bool showCoins = true, Widget Function(Color accent)? header, Widget Function(Color accent)? footer}) {
     final accent = Theme.of(context).colorScheme.primary;
     BuildContext? mine;
     showModalBottomSheet<void>(
@@ -2787,16 +2883,34 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                       ),
                     ]),
                   ),
+                  // En-tête fixe (ne défile pas avec la liste)
+                  if (header != null)
+                    ValueListenableBuilder<int>(
+                      valueListenable: _rev,
+                      builder: (_, __, ___) => Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                        child: header(accent),
+                      ),
+                    ),
                   Expanded(
                     child: ValueListenableBuilder<int>(
                       valueListenable: _rev,
                       builder: (_, __, ___) => SingleChildScrollView(
                         // + hauteur de la barre de navigation Android
-                        padding: EdgeInsets.fromLTRB(16, 4, 16, 24 + MediaQuery.of(ctx).viewPadding.bottom),
+                        padding: EdgeInsets.fromLTRB(16, 4, 16, footer != null ? 8 : 24 + MediaQuery.of(ctx).viewPadding.bottom),
                         child: body(accent),
                       ),
                     ),
                   ),
+                  // Pied fixe
+                  if (footer != null)
+                    ValueListenableBuilder<int>(
+                      valueListenable: _rev,
+                      builder: (_, __, ___) => Padding(
+                        padding: EdgeInsets.fromLTRB(16, 6, 16, 8 + MediaQuery.of(ctx).viewPadding.bottom),
+                        child: footer(accent),
+                      ),
+                    ),
                 ]),
               );
             }),
@@ -2959,7 +3073,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         Row(children: [
           Expanded(child: _dayPick<int>(
             label: 'Hero',
-            lead: SizedBox(width: 30, height: 26, child: CustomPaint(painter: _HeroPreviewPainter(_hero))),
+            lead: SizedBox(width: 30, height: 26, child: CustomPaint(painter: _HeroPreviewPainter(_heroCode))),
             value: _heroNames[_hero],
             items: [
               for (final i in heroes)
@@ -3197,39 +3311,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
             'Fill in kLbUrl and kLbKey in leaderboard_service.dart.');
       }
       final b = _lbBoard;
-      final tabs = Row(children: [
-        Expanded(child: _lbTabBtn(0, Icons.today_rounded, 'Daily challenge', accent)),
-        const SizedBox(width: 6),
-        Expanded(child: _lbTabBtn(2, Icons.date_range_rounded, 'Weekly challenge', accent)),
-        const SizedBox(width: 6),
-        Expanded(child: _lbTabBtn(3, Icons.emoji_events_rounded, 'Overall challenge', accent)),
-        const SizedBox(width: 6),
-        Expanded(child: _lbTabBtn(1, Icons.person_rounded, 'Solo', accent)),
-      ]);
       return Column(children: [
-        tabs,
-        const SizedBox(height: 10),
-        // Pseudo
-        Container(
-          padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1C2230),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(children: [
-            const Icon(Icons.person_rounded, color: Colors.white54, size: 18),
-            const SizedBox(width: 8),
-            Expanded(child: Text('Name : ${_lbMyName ?? '—'}',
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600))),
-            TextButton.icon(
-              onPressed: _lbEditName,
-              icon: const Icon(Icons.edit_rounded, size: 16),
-              label: const Text('Edit'),
-            ),
-          ]),
-        ),
-        const SizedBox(height: 10),
         if (_lbLoading && b == null)
           const Padding(
             padding: EdgeInsets.all(30),
@@ -3239,39 +3321,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           _lbInfo(Icons.wifi_off_rounded, 'Offline', 'Leaderboard unavailable right now.',
               retry: _lbLoad)
         else if (b != null) ...[
-          // Fin du défi du jour / de la semaine
-          if (_lbTab == 0 || _lbTab == 2)
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: _lbTab == 0
-                    ? const _DailyCountdown(color: Colors.lightBlueAccent, prefix: '⏳ Challenge ends in ')
-                    : const _DailyCountdown(color: Colors.lightBlueAccent, prefix: '⏳ Week ends in ', weekly: true),
-              ),
-            ),
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.amberAccent.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.amberAccent.withOpacity(0.3)),
-            ),
-            child: Text(
-              b.me.rank != null
-                  ? 'Your rank : #${b.me.rank} / ${b.me.total}  ·  ${_fmtNum(b.me.score ?? 0)} pts'
-                  : (_lbTab == 0
-                      ? 'No score today yet: play the daily run!'
-                      : _lbTab == 2
-                          ? 'No challenge this week yet: play the daily run!'
-                          : _lbTab == 3
-                          ? 'No award yet: play the daily run!'
-                          : 'No score yet: play a game to enter the leaderboard.'),
-              style: const TextStyle(color: Colors.amberAccent, fontSize: 13, fontWeight: FontWeight.w700),
-            ),
-          ),
           if (b.top.isEmpty)
             const Padding(
               padding: EdgeInsets.all(20),
@@ -3280,6 +3329,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           for (int i = 0; i < b.top.length + _lbMore.length; i++)
             _lbRow(i, i < b.top.length ? b.top[i] : _lbMore[i - b.top.length],
                 key: (i < b.top.length ? b.top[i] : _lbMore[i - b.top.length]).pid == _lbPid ? _lbMeKey : null),
+        ],
+        if (!_lbFailed && b != null) ...[
           // Voir plus (jusqu'à 500) + Ma position
           if (b.top.isNotEmpty)
             Padding(
@@ -3317,14 +3368,86 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         const SizedBox(height: 8),
         Text(
           _lbTab == 0
-              ? 'Daily challenge: same course for everyone, no start bonus, continue or coins. New course every day at midnight. The top 3 win a gold, silver or bronze medal (given at midnight).'
+              ? 'Daily challenge: same course for everyone, no start bonus, continue or coins. New course every day at midnight. The top 3 win a gold, silver or bronze medal, the other players a participation medal (given at midnight).'
               : _lbTab == 2
-                  ? 'Weekly challenge: medals won this week in the daily challenge (gold, then silver, then bronze; ties broken by best challenge score). Every Monday, gold, silver and bronze cups go to the top 3 and a participation medal to the other players of the week · ends in ${Leaderboard.weekDaysLeft()} d.'
+                  ? 'Weekly challenge: medals won this week in the daily challenge (gold, then silver, then bronze, then participation; ties broken by best challenge score). Every Monday, gold, silver and bronze cups go to the top 3 · ends in ${Leaderboard.weekDaysLeft()} d.'
                   : _lbTab == 3
                       ? 'Overall challenge: every award won since the start — gold, silver and bronze cups, then daily medals, then participation medals (ties broken by best challenge score).'
                       : 'Solo: each player\'s best score in normal games (daily challenge not included).',
           style: const TextStyle(color: Colors.white38, fontSize: 12, height: 1.4),
         ),
+      ]);
+    }, header: (accent) {
+      if (!Leaderboard.configured) return const SizedBox.shrink();
+      final b = _lbBoard;
+      final tabs = Row(children: [
+        Expanded(child: _lbTabBtn(0, Icons.today_rounded, 'Daily challenge', accent)),
+        const SizedBox(width: 6),
+        Expanded(child: _lbTabBtn(2, Icons.date_range_rounded, 'Weekly challenge', accent)),
+        const SizedBox(width: 6),
+        Expanded(child: _lbTabBtn(3, Icons.emoji_events_rounded, 'Overall challenge', accent)),
+        const SizedBox(width: 6),
+        Expanded(child: _lbTabBtn(1, Icons.person_rounded, 'Solo', accent)),
+      ]);
+      return Column(children: [
+        tabs,
+        const SizedBox(height: 10),
+        // Pseudo
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C2230),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(children: [
+            const Icon(Icons.person_rounded, color: Colors.white54, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Name : ${_lbMyName ?? '—'}',
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600))),
+            TextButton.icon(
+              onPressed: _lbEditName,
+              icon: const Icon(Icons.edit_rounded, size: 16),
+              label: const Text('Edit'),
+            ),
+          ]),
+        ),
+        if (!_lbFailed && b != null) ...[
+          const SizedBox(height: 8),
+          // Fin du défi du jour / de la semaine
+          if (_lbTab == 0 || _lbTab == 2)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _lbTab == 0
+                    ? const _DailyCountdown(color: Colors.lightBlueAccent, prefix: '⏳ Challenge ends in ')
+                    : const _DailyCountdown(color: Colors.lightBlueAccent, prefix: '⏳ Week ends in ', weekly: true),
+              ),
+            ),
+          Container(
+            width: double.infinity,
+            margin: EdgeInsets.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.amberAccent.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amberAccent.withOpacity(0.3)),
+            ),
+            child: Text(
+              b.me.rank != null
+                  ? 'Your rank : #${b.me.rank} / ${b.me.total}  ·  ${_fmtNum(b.me.score ?? 0)} pts'
+                  : (_lbTab == 0
+                      ? 'No score today yet: play the daily run!'
+                      : _lbTab == 2
+                          ? 'No challenge this week yet: play the daily run!'
+                          : _lbTab == 3
+                          ? 'No award yet: play the daily run!'
+                          : 'No score yet: play a game to enter the leaderboard.'),
+              style: const TextStyle(color: Colors.amberAccent, fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
       ]);
     });
   }
@@ -3454,7 +3577,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final txt = _chatCtrl.text;
     if (txt.trim().isEmpty || _chatSending) return;
     setState(() => _chatSending = true);
-    final r = await Leaderboard.sendChat(txt, _hero);
+    final r = await Leaderboard.sendChat(txt, _heroCode);
     if (!mounted) return;
     setState(() => _chatSending = false);
     if (r == Leaderboard.chatOk || r == Leaderboard.chatEmpty) {
@@ -3737,7 +3860,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                       width: 52, height: 52,
                       padding: const EdgeInsets.all(9),
                       decoration: BoxDecoration(color: const Color(0xFF1C2230), borderRadius: BorderRadius.circular(14)),
-                      child: CustomPaint(painter: _HeroPreviewPainter(min(max(h, 0), _heroCount - 1))),
+                      child: CustomPaint(painter: _HeroPreviewPainter(_heroSafe(h))),
                     ),
                   const SizedBox(width: 12),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -3887,7 +4010,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       grid([
         tile(Icons.today_rounded, Colors.cyanAccent, 'Daily challenge${rank(n('rank_today'))}', fmt(n('today'))),
         tile(Icons.date_range_rounded, Colors.lightBlueAccent, 'Weekly challenge${rank(n('rank_wch'), n('total_wch'))}',
-            n('rank_wch') == null ? '—' : '🥇${n('wg') ?? 0} 🥈${n('ws') ?? 0} 🥉${n('wb') ?? 0}'),
+            n('rank_wch') == null ? '—' : '🥇${n('wg') ?? 0} 🥈${n('ws') ?? 0} 🥉${n('wb') ?? 0} ✅${n('wp') ?? 0}'),
         tile(Icons.emoji_events_rounded, Colors.amberAccent, 'Overall challenge${rank(n('rank_gen'), n('total_gen'))}',
             n('rank_gen') == null ? '—' : '🏆 ${(n('gold') ?? 0) + (n('silver') ?? 0) + (n('bronze') ?? 0)}'),
         tile(Icons.workspace_premium_rounded, Colors.orangeAccent, 'Dailies won', fmt(n('daily_wins'))),
@@ -3965,7 +4088,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           _Avatar(code: e.avatar, hero: e.hero, size: 30),
           if (_avParse(e.avatar) != null)
             Positioned(right: -6, bottom: -5, child: SizedBox(width: 17, height: 15,
-                child: CustomPaint(painter: _HeroPreviewPainter(min(max(e.hero, 0), _heroCount - 1))))),
+                child: CustomPaint(painter: _HeroPreviewPainter(_heroSafe(e.hero))))),
         ])),
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -4235,6 +4358,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   void _openShop() => _openSheet('Shop', Icons.storefront_rounded, Colors.pinkAccent, (accent) => Column(children: [
         _section('Hero  ·  ${_unlocked.length}/$_heroCount'),
         _grid(_heroCount, (i) => _heroTile(i, accent)),
+        _goldHeroCard(),
         _section('Theme  ·  ${_themeUnlocked.length}/${_themeNames.length}'),
         _grid(_themeNames.length, (i) => _themeTile(i, accent)),
         _section('Music  ·  ${_musicUnlocked.length}/${_musicNames.length}'),
@@ -4489,7 +4613,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   void _openSettings() => _openSheet('Settings', Icons.settings_rounded, Colors.cyanAccent, (accent) => Column(children: [
         _section('Avatar'),
         Row(children: [
-          GestureDetector(onTap: _openAvatarEditor, child: _Avatar(code: _avatar, hero: _hero, size: 56)),
+          GestureDetector(onTap: _openAvatarEditor, child: _Avatar(code: _avatar, hero: _heroCode, size: 56)),
           const SizedBox(width: 12),
           Expanded(child: Text('Shown in the leaderboard, the chat and your player card.', style: const TextStyle(color: Colors.white54, fontSize: 12))),
           const SizedBox(width: 8),
@@ -4603,7 +4727,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                         text: 'Ghost: in the daily run, today\'s #1 player climbs alongside you'),
                     SizedBox(height: 10),
                     _RuleRow(icon: Icons.leaderboard_rounded, color: Colors.amberAccent,
-                        text: 'Leaderboards: daily challenge (a medal for the top 3 every day), weekly challenge (cups for the 3 players with the most medals every Monday, a participation medal for the others), overall challenge (every award since the start) and Solo (best score in normal games). Tap a player to see their card'),
+                        text: 'Leaderboards: daily challenge (a medal for the top 3 and a participation medal for the others, every day), weekly challenge (cups for the 3 players with the most medals every Monday), overall challenge (every award since the start) and Solo (best score in normal games). Tap a player to see their card'),
                     SizedBox(height: 10),
                     _RuleRow(icon: Icons.military_tech_rounded, color: Colors.lightGreenAccent,
                         text: 'Level: 1 XP per 10 pts, +10 per game, +25 per challenge completed, +30 for the daily run. Each level gives 20 × the level in coins'),
@@ -4783,7 +4907,7 @@ class _SplashViewState extends State<_SplashView> with SingleTickerProviderState
             // Héros du record en pastille (si l'avatar le remplace)
             if (_avParse(e.avatar) != null)
               Positioned(right: -2, bottom: -2, child: SizedBox(width: 20, height: 18,
-                  child: CustomPaint(painter: _HeroPreviewPainter(min(max(e.hero, 0), _heroCount - 1))))),
+                  child: CustomPaint(painter: _HeroPreviewPainter(_heroSafe(e.hero))))),
           ])),
           const SizedBox(height: 4),
           Text(e.name,
@@ -5467,6 +5591,7 @@ class _JumpGame extends StatefulWidget {
   final int hero;
   final int theme;
   final int trail; // chosen jump trail
+  final bool goldHero; // héros doré (affichage + classement)
   final bool haptics;
   final int hapticLvl;     // intensité des vibrations (0 faible, 1 normale, 2 forte)
   final bool tilt;
@@ -5486,6 +5611,7 @@ class _JumpGame extends StatefulWidget {
     required this.hero,
     required this.theme,
     this.trail = 0,
+    this.goldHero = false,
     required this.haptics,
     this.hapticLvl = 1,
     required this.tilt,
@@ -5748,6 +5874,8 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       } catch (_) {}
     }
   }
+
+  int get _heroCode => widget.hero + (widget.goldHero ? 32 : 0);
 
   void _haptic(int level) {
     if (!widget.haptics) return;
@@ -6594,10 +6722,10 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     // Solo : parties normales seulement (le défi du jour a son propre classement)
     final all = day != null
         ? null
-        : Leaderboard.submit(mode: 'all', day: lbAllDay, score: score, hero: widget.hero, time: time, name: name);
+        : Leaderboard.submit(mode: 'all', day: lbAllDay, score: score, hero: _heroCode, time: time, name: name);
     final daily = day == null
         ? null
-        : Leaderboard.submit(mode: 'daily', day: day, score: score, hero: widget.hero, time: time, name: name);
+        : Leaderboard.submit(mode: 'daily', day: day, score: score, hero: _heroCode, time: time, name: name);
     final rAll = all == null ? null : await all;
     final rDay = daily == null ? null : await daily;
     if (day != null && rDay != null && newDayBest) await Leaderboard.uploadGhost(day, score, ghostData);
@@ -6905,7 +7033,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
             shieldOn: _shield,
             invuln: _invuln,
             turboImg: _turboImg,
-            hero: widget.hero,
+            hero: _heroCode,
             time: _time,
             neon: widget.neon,
             crt: widget.theme == 4,
@@ -7252,7 +7380,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
                     Text('$_score pts',
                         style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, height: 1.15)),
                     Row(children: [
-                      SizedBox(width: 22, height: 20, child: CustomPaint(painter: _HeroPreviewPainter(widget.hero))),
+                      SizedBox(width: 22, height: 20, child: CustomPaint(painter: _HeroPreviewPainter(_heroCode))),
                       const SizedBox(width: 6),
                       Flexible(child: Text('${widget.daily != null ? 'Daily run' : 'Retro Jump'} · ${_heroNames[widget.hero]}${widget.theme != 0 ? ' · ${_themeNames[widget.theme]}' : ''}',
                           maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -7552,7 +7680,35 @@ void _rr(Canvas c, double x, double y, double w, double h, double r, Color color
 }
 
 /// Draws hero [id]. [time] (seconds) drives the eye blink.
+/// Filtre « or » des héros dorés.
+const _goldMatrix = <double>[
+  0.38, 0.75, 0.15, 0, 40,
+  0.30, 0.60, 0.12, 0, 25,
+  0.10, 0.20, 0.05, 0, 0,
+  0, 0, 0, 1, 0,
+];
+
 void _drawHero(Canvas c, int id, bool right, double time) {
+  if (id < 32) {
+    _drawHeroBase(c, id, right, time);
+    return;
+  }
+  // Héros doré : rendu passé au filtre or + étincelles
+  c.saveLayer(null, Paint()..colorFilter = const ColorFilter.matrix(_goldMatrix));
+  _drawHeroBase(c, (id % 32).clamp(0, _heroCount - 1), right, time);
+  c.restore();
+  final sp = Paint()..color = const Color(0xFFFFF8E1);
+  for (int k = 0; k < 3; k++) {
+    final a = time * 2 + k * 2.1;
+    final o = Offset(cos(a) * 17, -22 + sin(a * 1.3) * 17);
+    final r = 0.8 + (sin(time * 6 + k) + 1) * 0.9;
+    c.drawCircle(o, r, sp);
+    c.drawLine(o.translate(-r * 2.2, 0), o.translate(r * 2.2, 0), sp..strokeWidth = 0.8);
+    c.drawLine(o.translate(0, -r * 2.2), o.translate(0, r * 2.2), sp);
+  }
+}
+
+void _drawHeroBase(Canvas c, int id, bool right, double time) {
   switch (id) {
     case 1:
       _drawJoystick(c, right, time);
@@ -8137,7 +8293,7 @@ class _Avatar extends StatelessWidget {
       child: a == null
           ? Padding(
               padding: EdgeInsets.all(size * 0.06),
-              child: CustomPaint(painter: _HeroPreviewPainter(min(max(hero, 0), _heroCount - 1))))
+              child: CustomPaint(painter: _HeroPreviewPainter(_heroSafe(hero))))
           : CustomPaint(painter: _MiiPainter(a)),
     );
   }
@@ -11055,7 +11211,7 @@ class _JumpPainter extends CustomPainter {
     if (sy < -70 || sy > size.height + 20) return;
     canvas.saveLayer(Rect.fromLTWH(g.$1 - 50, sy - 70, 100, 80), Paint()..color = Colors.white.withOpacity(0.42));
     canvas.translate(g.$1, sy);
-    _drawHero(canvas, min(max(g.$4, 0), _heroCount - 1), g.$5, time);
+    _drawHero(canvas, _heroSafe(g.$4), g.$5, time);
     canvas.restore();
     final tp = TextPainter(
       text: TextSpan(text: '👻 ${g.$3}',

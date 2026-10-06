@@ -607,7 +607,7 @@ class Leaderboard {
         (r['best'] as num?)?.toInt() ?? 0, (r['hero'] as num?)?.toInt() ?? 0,
         (r['coins'] as num?)?.toInt(), (r['progress'] as num?)?.toInt(), (r['level'] as num?)?.toInt(),
         DateTime.tryParse(r['last_played'] as String? ?? '')?.toLocal(), r['avatar'] as String?,
-        null, null, null, null,
+        null, null, null, (r['mpart'] as num?)?.toInt() ?? 0,
         (r['mgold'] as num?)?.toInt() ?? 0, (r['msilver'] as num?)?.toInt() ?? 0, (r['mbronze'] as num?)?.toInt() ?? 0,
         null, (r['cups'] as num?)?.toInt());
 
