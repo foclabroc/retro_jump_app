@@ -4,6 +4,58 @@ Historique des versions de l'application autonome (le jeu existe aussi dans [Foc
 
 ---
 
+## v1.0.8 — Octobre 2026
+
+> Aucun changement côté serveur : le script Supabase v13 reste valable.
+
+### 🎨 Style des pages
+- 2 nouveaux styles pour l'interface : **Futuriste** (étoiles, anneaux HUD, sol quadrillé qui défile, accent cyan) et **Disco** (boule à facettes, faisceaux colorés, piste de danse lumineuse, accent rose)
+- Fond animé sur l'accueil et dans tous les panneaux (Boutique, Classements, Stats, Réglages), cartes et fenêtres aux couleurs du style
+- Nouvelle section **Style des pages** dans la Boutique, **3 000 pièces** chacun (Classique reste gratuit)
+
+### 🎡 Roue de la fortune
+- Roue **redessinée** : couronne dorée, ampoules qui clignotent, icônes des lots, pointeur et moyeu en relief
+- Après **Récupérer**, la roue **reste ouverte** : le lot s'affiche et tu peux retenter ta chance (payant) directement
+- Nouveau bouton **Fermer**
+
+### 🕹️ Jeu
+- **Plateformes verticales** qui montent et descendent
+- **Son** au déclenchement du turbo
+- Le bouton principal devient **Jouer Solo**
+
+### 🧑 Avatars
+- Beaucoup plus de modèles : peau (16), visage (8), coiffure (28), couleur des cheveux (24), yeux (18), bouche (18), accessoire (22), fond (24)
+- Rendu **en relief** (ombres et reflets)
+
+### 🛠️ Corrections et confort
+- Le réglage **son / muet** est désormais conservé au relancement
+- La pointe de la fusée de l'écran de démarrage n'est plus coupée
+- Fenêtre **Nouveautés** au lancement (avec « Ne plus afficher ») à la place de l'explication des classements
+
+---
+
+## v1.0.7 — Octobre 2026
+
+> ⚠️ Nécessite le script Supabase **v13 à jour** (relancer le script complet avant d'installer cette version).
+
+### 🔔 Notifications
+- **Alerte classement** : dès qu'un joueur te dépasse au **Solo** ou au **Défi du jour** (quelle que soit ta place), une notification Android indique son pseudo et son score, ton score et ta nouvelle place — vérification environ toutes les 15 min, même appli fermée
+- Autorisation des notifications demandée au premier lancement
+- Nouvelles permissions `POST_NOTIFICATIONS` et `RECEIVE_BOOT_COMPLETED`, dépendances `workmanager` et `flutter_local_notifications` (desugaring Java activé)
+
+### ✨ Héros dorés
+- Version **en or avec étincelles** de chaque héros, **15 000 pièces** (Boutique, sous la grille des héros) — enfin une utilité aux pièces une fois tout débloqué
+- Visible par tous : classements, chat, fiche joueur, fantôme du défi, podium
+- Interrupteur pour activer / désactiver la version dorée ; le pouvoir du héros ne change pas
+
+### 🏅 Défi du jour et classements
+- **Médaille de participation chaque jour** à tous les joueurs du défi hors podium (remise à minuit), comptée dans le **Défi semaine** (or, argent, bronze, puis participation) et cumulée dans le **Défi général**
+- Classement : **onglets, pseudo, compte à rebours et « Ton rang » fixes** en haut, seule la liste défile
+- **Fiche joueur** réorganisée : section *Défi du jour* (jour, semaine 🥇🥈🥉✅, général 🏆, défis gagnés / joués, meilleur défi) et section *Solo* (record et semaine)
+- Fenêtre d'explication au lancement mise à jour (notifications en premier, participation quotidienne) — réaffichée une fois
+
+---
+
 ## v1.0.4+5 — Octobre 2026
 
 > ⚠️ Nécessite le script Supabase **v13** (lancé avant d'installer cette version).

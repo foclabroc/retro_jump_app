@@ -396,6 +396,9 @@ object ChipSynth {
         // Bug écrasé : « splotch » descendant + bruit
         "stomp" to pcm(mix(tone(700.0, 140.0, 130, 0.30, SQUARE, 0.5, decay = 3.0),
                            tone(3000.0, 800.0, 90, 0.18, NOISE, decay = 5.0))),
+        // Boost (turbo) : « vroosh » de fusée qui monte (grondement + souffle)
+        "boost" to pcm(mix(tone(110.0, 880.0, 700, 0.24, SQUARE, 0.25, decay = 1.0),
+                           tone(600.0, 3500.0, 700, 0.12, NOISE, decay = 0.8))),
         // Turbo : arpège très rapide qui monte
         "powerup" to pcm(arp(intArrayOf(60, 64, 67, 72, 76, 79, 84, 88), 45, 0.25, SQUARE)),
         // Bouclier ramassé : scintillement

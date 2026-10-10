@@ -5,6 +5,7 @@ import 'fr/jump_screen.dart' as fr;
 import 'en/jump_screen.dart' as en;
 import 'leaderboard_service.dart';
 import 'update_check.dart';
+import 'rank_watch.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RÉTRO JUMP — application autonome (même jeu que dans Foclabroc Remote)
@@ -28,6 +29,8 @@ void main() async {
   lbAppVersion = kRetroJumpVersion;
   lbCheckUpdate = () async => await updateGateKey.currentState?.check(manual: true) ?? 2;
   runApp(const RetroJumpApp());
+  // Notification Android si quelqu'un te dépasse dans le top 3 (Solo / défi du jour)
+  RankWatch.start();
 }
 
 class RetroJumpApp extends StatelessWidget {

@@ -1,7 +1,7 @@
 name: retro_jump
 description: Rétro Jump — jeu de saut vertical rétro (classement en ligne, partie du jour)
 publish_to: 'none'
-version: 1.0.6+7
+version: 1.0.8+9
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -18,6 +18,8 @@ dependencies:
   wakelock_plus: ^1.1.4
   url_launcher: ^6.2.0
   open_filex: ^4.3.2
+  workmanager: ^0.10.10
+  flutter_local_notifications: ^20.1.0
 
 dev_dependencies:
   flutter_test:
