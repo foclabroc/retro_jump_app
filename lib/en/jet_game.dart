@@ -742,27 +742,6 @@ void _jetDrawChance(Canvas c, Offset p, double time) {
   c.drawCircle(p + const Offset(9, -10), 1.5 + g * 1.5, sp);
 }
 
-/// Faisceau électrique horizontal (boss) entre deux bornes.
-void _jetDrawBeam(Canvas c, double x0, double x1, double y, double time, double alpha) {
-  c.drawLine(Offset(x0, y), Offset(x1, y), Paint()
-    ..color = const Color(0xFFFF1744).withOpacity(0.45 * alpha)
-    ..strokeWidth = 10
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7));
-  final r = Random((time * 24).floor() + y.floor());
-  final path = Path()..moveTo(x0, y);
-  for (double x = x0 + 24; x < x1; x += 24) {
-    path.lineTo(x, y + (r.nextDouble() - 0.5) * 6);
-  }
-  path.lineTo(x1, y);
-  c.drawPath(path, Paint()
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 2
-    ..color = const Color(0xFFFF8A80).withOpacity(alpha));
-  c.drawLine(Offset(x0, y), Offset(x1, y), Paint()
-    ..strokeWidth = 1.2
-    ..color = Colors.white.withOpacity(alpha));
-}
-
 /// Boss : envahisseur géant (Space Invaders) avec un canon à missiles.
 void _jetDrawBoss(Canvas c, Offset p, double time, bool charging, double hurt) {
   const px = 11.0;
@@ -808,6 +787,52 @@ void _jetDrawBoss(Canvas c, Offset p, double time, bool charging, double hurt) {
           ..shader = ui.Gradient.linear(Offset(p.dx + 62, 0), Offset(p.dx + 62 + fl, 0),
               const [Color(0xFFFFF59D), Color(0x00FF6D00)], const [0, 1]));
   }
+}
+
+const _jDragon = [
+  [
+    '......DD..........',
+    '.....DXXD.........',
+    '....DXXXXD....DDD.',
+    '...DXXXXXXD..DXXXD',
+    '....DDXXXXXDDXXWXD',
+    'D.....DXXXXXXXXXXD',
+    'XD...DXXXXXXXXXXD.',
+    '.XDDDXXXXXXXXXDD..',
+    '..XXXXXXXXXXXD....',
+    '....DXD...DXD.....',
+    '....DD....DD......',
+  ],
+  [
+    '..................',
+    '..................',
+    '..............DDD.',
+    '.............DXXXD',
+    '......DDDDDDDXXWXD',
+    'D....DXXXXXXXXXXXD',
+    'XD..DXXXXXXXXXXXD.',
+    '.XDDXXXXDDDXXXDD..',
+    '..XXXXXDXXXD.D....',
+    '....DXDDXXD.XD....',
+    '....DD.DXD..DD....',
+  ],
+];
+
+/// Dragon pixel : vole comme le jetpack, crache du feu, le héros sur son dos.
+void _jetDrawDragon(Canvas c, Offset feet, int hero, double time, double left) {
+  final center = feet + const Offset(0, -26);
+  final frame = (time * 6).floor().isEven ? 0 : 1;
+  // Clignote les 2 dernières secondes
+  if (left < 2 && (time * 8).floor().isEven) return;
+  c.drawCircle(center, 34, Paint()
+    ..color = const Color(0xFFFF6D00).withOpacity(0.18)
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12));
+  c.save();
+  c.translate(feet.dx - 6, feet.dy - 40);
+  c.scale(0.5, 0.5);
+  _drawHero(c, hero, true, time);
+  c.restore();
+  _jPixels(c, _jDragon[frame], center, 4.0, const Color(0xFF66BB6A), const Color(0xFF1B5E20));
 }
 
 /// Mecha Manette : grosse manette sur deux jambes, le héros aux commandes.
@@ -1117,6 +1142,7 @@ class _JetScreenState extends State<_JetScreen> with SingleTickerProviderStateMi
   Set<String> _trHave = {}; // trophées débloqués
   Map<String, dynamic> _stats = {}; // statistiques à vie
   LbBoard? _dBoard;
+  LbGhost? _ghost; // fantôme du meilleur joueur du jour
   int _lbTab = 0, _shopTab = 0;
   LbBoard? _board;
   List<LbEntry> _podium = const [];
@@ -1320,6 +1346,8 @@ class _JetScreenState extends State<_JetScreen> with SingleTickerProviderStateMi
       _dBoard = b;
       _dLoading = false;
     });
+    final gh = await Leaderboard.topJetGhost(Leaderboard.today());
+    if (mounted) setState(() => _ghost = gh);
   }
 
   void _play({bool daily = false}) {
@@ -1335,7 +1363,7 @@ class _JetScreenState extends State<_JetScreen> with SingleTickerProviderStateMi
 
   /// Fin de partie : pièces, records, envoi au classement.
   Future<(bool, LbRank?, String?, List<(IconData, String, int)>)> _finish(
-      int meters, int coins, int seconds, Map<String, int> runStats) async {
+      int meters, int coins, int seconds, Map<String, int> runStats, String ghost) async {
     final prefs = await SharedPreferences.getInstance();
     final total = (prefs.getInt(_kJetCoinsKey) ?? 0) + coins;
     await prefs.setInt(_kJetCoinsKey, total);
@@ -1407,6 +1435,13 @@ class _JetScreenState extends State<_JetScreen> with SingleTickerProviderStateMi
     if (name == null) return (record, null, 'Pick a nickname in the leaderboard to be ranked.', rewards);
     final r = await Leaderboard.submitJet(daily: daily != null, score: meters, hero: _heroCode, time: max(1, seconds), name: name);
     _loadPodium(); // podium et repères des autres joueurs à jour dès la fin de partie
+    // Nouveau meilleur score du jour : on envoie son fantôme
+    if (daily != null && record && r != null && ghost.isNotEmpty) {
+      Leaderboard.uploadJetGhost(daily, meters, ghost).then((_) async {
+        final gh = await Leaderboard.topJetGhost(daily);
+        if (mounted) setState(() => _ghost = gh);
+      });
+    }
     return (record, r, r == null ? 'Offline: score not sent.' : null, rewards);
   }
 
@@ -1684,6 +1719,7 @@ class _JetScreenState extends State<_JetScreen> with SingleTickerProviderStateMi
               best: _daily != null ? _dailyBest : _best,
               showHelp: _runs < 3,
               markers: _markers,
+              ghost: _daily != null ? _ghost : null,
               magnetTime: _daily != null ? 9.0 : 9.0 + 2 * _ups[0], // améliorations sans effet en défi du jour
               turboTime: _daily != null ? 3.2 : 3.2 + 0.8 * _ups[1],
               startShield: _ups[2] > 0 && _daily == null, // aucun bonus en défi du jour
@@ -2272,6 +2308,9 @@ class _JetScreenState extends State<_JetScreen> with SingleTickerProviderStateMi
                       ? 'Your best today: ${_fmtNum(_dailyBest)} m${b != null && b.me.rank != null ? '  ·  #${b.me.rank} / ${b.me.total}' : ''}'
                       : 'Not played yet today',
                   style: const TextStyle(color: Colors.amberAccent, fontSize: 13, fontWeight: FontWeight.w800)),
+              if (_ghost != null)
+                Text('👻 Ghost: ${_ghost!.name} (${_fmtNum(_ghost!.score)} m) flies with you',
+                    style: const TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w700)),
               const Text('Same course for everyone, no coins or jackpot · unlimited tries',
                   style: TextStyle(color: Colors.white38, fontSize: 11)),
             ]),
@@ -2319,7 +2358,8 @@ class _JetScreenState extends State<_JetScreen> with SingleTickerProviderStateMi
           const SizedBox(width: 8),
         ],
         Expanded(
-          child: Row(children: [
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [
             Flexible(
               child: Text(e.name,
                   maxLines: 1,
@@ -2332,6 +2372,15 @@ class _JetScreenState extends State<_JetScreen> with SingleTickerProviderStateMi
               const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFD54F), size: 15),
               Text('${e.cups}', style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 12, fontWeight: FontWeight.w900)),
             ],
+          ]),
+          // Heure de la dernière partie de Rétro Jet
+          if (e.lastPlayed != null)
+            Row(children: [
+              const Icon(Icons.schedule_rounded, size: 11, color: Colors.white38),
+              const SizedBox(width: 3),
+              Text(_when(e.lastPlayed!),
+                  style: const TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w600)),
+            ]),
           ]),
         ),
         const SizedBox(width: 8),
@@ -2987,7 +3036,9 @@ class _JetScreenState extends State<_JetScreen> with SingleTickerProviderStateMi
           child: Text(
               'Rules: hold to fly, release to fall. Dodge lasers, missiles and bugs. '
               'Power-ups: shield, magnet, turbo and vehicles (Mecha Pad: tap to jump; '
-              'Gravity Game Boy: tap to switch between floor and ceiling). Coins, heroes, jetpacks and scenery '
+              'Gravity Game Boy: tap to switch between floor and ceiling; Pixel Dragon: its fire destroys lasers and enemies for 12 s). '
+              'A 2nd shield goes into reserve: tap the bubble at the bottom right to use it. '
+              'Coins, heroes, jetpacks and scenery '
               'belong to Retro Jet only.',
               style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.4)),
         ),
@@ -3268,8 +3319,9 @@ class _JetGame extends StatefulWidget {
   final int best;
   final bool showHelp;
   final List<(String, int)> markers; // autres joueurs : (pseudo, distance)
+  final LbGhost? ghost; // fantôme du meilleur joueur du jour (défi du jour)
   final Future<(bool, LbRank?, String?, List<(IconData, String, int)>)> Function(
-      int meters, int coins, int seconds, Map<String, int> stats) onFinish;
+      int meters, int coins, int seconds, Map<String, int> stats, String ghost) onFinish;
   final VoidCallback onRetry, onMenu;
   const _JetGame({
     super.key,
@@ -3285,6 +3337,7 @@ class _JetGame extends StatefulWidget {
     required this.best,
     required this.showHelp,
     this.markers = const [],
+    this.ghost,
     required this.onFinish,
     required this.onRetry,
     required this.onMenu,
@@ -3305,14 +3358,10 @@ class _JetGameState extends State<_JetGame> with SingleTickerProviderStateMixin,
   int? _prize; // dernier lot tiré
   int _lastReelTick = 0;
   double _nextChance = 2600;
-  // Boss tous les 500 m : faisceaux en haut et en bas + 3 attaques de missiles
+  // Boss tous les 500 m : 3 attaques de missiles
   int _bossState = 0; // 0 aucun, 1 arrivée, 2 combat, 3 vaincu
   double _bossT = 0, _bossY = (_jCeil + _jFloor) / 2, _bossShotT = 0;
   int _bossNext = 500, _bossShots = 0, _bossLevel = 0;
-  // Faisceaux tout en haut et tout en bas : interdit de raser le plafond ou le sol
-  double get _beamTop => _jCeil + 22;
-  double get _beamBot => _jFloor - 16;
-  bool get _beamsOn => _bossState == 2 && _bossT > 1.4; // d'abord un avertissement
 
   late final Random _gen; // parcours (graine commune pour le défi du jour)
   final _fxRng = Random();
@@ -3327,8 +3376,16 @@ class _JetGameState extends State<_JetGame> with SingleTickerProviderStateMixin,
   double _time = 0, _deadT = 0, _playTime = 0;
   double _inv = 0, _magnet = 0, _turbo = 0, _shake = 0, _flash = 0, _deadRot = 0;
   bool _shield = false;
+  bool _shieldReserve = false; // 2ᵉ bouclier ramassé : en réserve (bulle en bas à droite)
   bool _lifeUsed = false; // Fantôme : 2ᵉ chance déjà utilisée
-  int _vehicle = -1; // 0 Mecha Manette, 1 Game Boy à gravité
+  int _vehicle = -1; // 0 Mecha Manette, 1 Game Boy à gravité, 2 Dragon pixel
+  double _dragonT = 0; // temps restant du dragon
+  double _fireSfxT = 0;
+  // Fantôme du jour : enregistrement (distance, hauteur) toutes les 0,1 s
+  final _ghostRec = <int>[];
+  double _ghostT = 0;
+  late final ByteData? _ghostData =
+      widget.ghost == null ? null : ByteData.sublistView(widget.ghost!.data);
   bool _gbUp = false;
   int _coins = 0;
   double _nextX = 700, _nextItem = 1800, _nextMissile = 2600;
@@ -3356,10 +3413,80 @@ class _JetGameState extends State<_JetGame> with SingleTickerProviderStateMixin,
   Offset get _hitC {
     if (_vehicle == 0) return Offset(_px, _py - 48);
     if (_vehicle == 1) return Offset(_px, _py - 24);
+    if (_vehicle == 2) return Offset(_px, _py - 28);
     return Offset(_px, _py - 21);
   }
 
-  double get _hitR => _vehicle == 0 ? 34 : _vehicle == 1 ? 25 : 14;
+  double get _hitR => _vehicle == 0 ? 34 : _vehicle == 1 ? 25 : _vehicle == 2 ? 24 : 14;
+
+  /// Position du fantôme (monde) à l'instant de jeu actuel ; null s'il est fini ou absent.
+  Offset? get _ghostPos {
+    final d = _ghostData;
+    if (d == null) return null;
+    final n = d.lengthInBytes ~/ 6;
+    if (n < 2) return null;
+    final f = _playTime / 0.1;
+    final i = f.floor();
+    if (i >= n - 1) return null;
+    final k = f - i;
+    double gx(int j) => d.getInt32(j * 6, Endian.little).toDouble();
+    double gy(int j) => d.getInt16(j * 6 + 4, Endian.little).toDouble();
+    return Offset(gx(i) + (gx(i + 1) - gx(i)) * k + _w * 0.24, gy(i) + (gy(i + 1) - gy(i)) * k);
+  }
+
+  /// Fantôme enregistré (base64) pour le défi du jour.
+  String _ghostEncode() {
+    if (_ghostRec.isEmpty) return '';
+    final b = ByteData(_ghostRec.length ~/ 2 * 6);
+    for (int j = 0; j < _ghostRec.length ~/ 2; j++) {
+      b.setInt32(j * 6, _ghostRec[j * 2], Endian.little);
+      b.setInt16(j * 6 + 4, _ghostRec[j * 2 + 1], Endian.little);
+    }
+    return base64Encode(b.buffer.asUint8List());
+  }
+
+  /// Dragon : son souffle détruit les lasers et les ennemis devant lui.
+  void _updateDragon(double dt) {
+    _dragonT -= dt;
+    if (_dragonT <= 0) {
+      _burst(_hitC, const Color(0xFF66BB6A), 20);
+      _vehicle = -1;
+      _inv = max(_inv, 1.2);
+      _showBanner('THE DRAGON FLIES AWAY');
+      return;
+    }
+    final mouth = Offset(_px + 34, _py - 40);
+    for (int i = 0; i < 2; i++) {
+      _fx.add(_JFx(mouth.dx, mouth.dy + (_fxRng.nextDouble() - 0.5) * 10, _speed + 520 + _fxRng.nextDouble() * 200,
+          (_fxRng.nextDouble() - 0.5) * 160, 0.28, 6 + _fxRng.nextDouble() * 4,
+          i == 0 ? const Color(0xFFFF9100) : const Color(0xFFFFEB3B),
+          glow: true));
+    }
+    final fire = Offset(_px + 120, _py - 36);
+    var burnt = false;
+    _zaps.removeWhere((z) {
+      if (z.x < _px || _segDist(fire, z.a, z.b) > 80) return false;
+      _burst(Offset(z.x, z.y), const Color(0xFFFF6D00), 18, speed: 300);
+      burnt = true;
+      return true;
+    });
+    for (final b in _bugs) {
+      if (b.dead || b.x < _px) continue;
+      if ((Offset(b.x, b.y) - fire).distance < 85) {
+        b.dead = true;
+        _coins += 5;
+        _stat('bugs');
+        _burst(Offset(b.x, b.y), const Color(0xFFFF9100), 14);
+        burnt = true;
+      }
+    }
+    _fireSfxT -= dt;
+    if (burnt && _fireSfxT <= 0) {
+      _fireSfxT = 0.25;
+      QuizAudio.sfx('explode');
+      _haptic(1);
+    }
+  }
 
   @override
   void initState() {
@@ -3573,7 +3700,18 @@ class _JetGameState extends State<_JetGame> with SingleTickerProviderStateMixin,
     }
     _updateBoss(dt);
     _generate();
+    if (_vehicle == 2) _updateDragon(dt);
     _movePlayer(dt);
+    // Fantôme du défi du jour (≈ 30 min max)
+    if (widget.daily != null && _ghostRec.length < 36000) {
+      _ghostT += dt;
+      while (_ghostT >= 0.1) {
+        _ghostT -= 0.1;
+        _ghostRec
+          ..add(_dist.round())
+          ..add(_py.round());
+      }
+    }
     _moveThings(dt);
     _collide();
     _cleanup();
@@ -3600,6 +3738,25 @@ class _JetGameState extends State<_JetGame> with SingleTickerProviderStateMixin,
       if (_py < _jCeil + 80) {
         _py = _jCeil + 80;
         _vy = max(_vy, 0.0);
+      }
+      return;
+    }
+    if (_vehicle == 2 && _turbo <= 0) {
+      // Dragon : battements d'ailes, plus lourd que le jetpack
+      _vy += (_hold ? -2500.0 : 1500.0) * dt;
+      _vy = _vy.clamp(-420.0, 560.0);
+      _py += _vy * dt;
+      const topD = _jCeil + 62;
+      if (_py < topD) {
+        _py = topD;
+        if (_vy < 0) _vy = 0;
+      }
+      if (_py >= _jFloor) {
+        _py = _jFloor;
+        _vy = 0;
+        _onFloor = true;
+      } else {
+        _onFloor = false;
       }
       return;
     }
@@ -3902,10 +4059,6 @@ class _JetGameState extends State<_JetGame> with SingleTickerProviderStateMixin,
       }
     }
     if (safe) return;
-    if (_beamsOn && (c.dy - r < _beamTop || c.dy + r > _beamBot)) {
-      _hit(true);
-      return;
-    }
     for (final z in _zaps) {
       if (_segDist(c, z.a, z.b) < r + 4) {
         _hit(true);
@@ -3935,6 +4088,13 @@ class _JetGameState extends State<_JetGame> with SingleTickerProviderStateMixin,
         QuizAudio.sfx('logo');
         break;
       case 0:
+        if (_shield) {
+          // Déjà protégé : le bouclier part en réserve (1 au maximum)
+          _showBanner(_shieldReserve ? 'SHIELD' : 'SHIELD IN RESERVE');
+          _shieldReserve = true;
+          QuizAudio.sfx('shield');
+          break;
+        }
         _shield = true;
         _showBanner('SHIELD');
         QuizAudio.sfx('shield');
@@ -3957,10 +4117,12 @@ class _JetGameState extends State<_JetGame> with SingleTickerProviderStateMixin,
           QuizAudio.sfx('coin');
         } else {
           _stat('vehicles');
-          _vehicle = _fxRng.nextBool() ? 0 : 1; // pas _gen : le parcours du défi doit rester identique
+          _vehicle = _fxRng.nextInt(3); // pas _gen : le parcours du défi doit rester identique
           _gbUp = false;
           _vy = 0;
-          _showBanner(_vehicle == 0 ? 'MECHA PAD!' : 'GRAVITY GAME BOY!', 2);
+          _dragonT = 12;
+          _showBanner(
+              switch (_vehicle) { 0 => 'MECHA PAD!', 1 => 'GRAVITY GAME BOY!', _ => 'PIXEL DRAGON!' }, 2);
           QuizAudio.sfx('powerup');
         }
     }
@@ -4278,7 +4440,8 @@ class _JetGameState extends State<_JetGame> with SingleTickerProviderStateMixin,
   }
 
   Future<void> _finish() async {
-    final res = await widget.onFinish(_meters, widget.daily != null ? 0 : _coins, _playTime.round(), Map.of(_st));
+    final res = await widget.onFinish(
+        _meters, widget.daily != null ? 0 : _coins, _playTime.round(), Map.of(_st), widget.daily != null ? _ghostEncode() : '');
     if (!mounted) return;
     setState(() {
       _record = res.$1;
@@ -4316,6 +4479,18 @@ class _JetGameState extends State<_JetGame> with SingleTickerProviderStateMixin,
   }
 
   void _up() => _hold = false;
+
+  /// Active le bouclier en réserve (si on n'est pas déjà protégé).
+  void _useReserve() {
+    if (!_shieldReserve || _shield || _dead || _paused) return;
+    setState(() {
+      _shield = true;
+      _shieldReserve = false;
+    });
+    _burst(_hitC, _jCyan, 16);
+    QuizAudio.sfx('shield');
+    _haptic(2);
+  }
 
   // ── Affichage ─────────────────────────────────────────────────────────────
   @override
@@ -4392,6 +4567,33 @@ class _JetGameState extends State<_JetGame> with SingleTickerProviderStateMixin,
               ]),
             ),
           ),
+          // Bouclier en réserve : bulle à toucher (grisée tant qu'un bouclier est actif)
+          if (_shieldReserve && !_dead)
+            Positioned(
+              right: 18 + pad.right,
+              bottom: 14,
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (_) => _useReserve(),
+                child: Opacity(
+                  opacity: _shield ? 0.45 : 1,
+                  child: Transform.scale(
+                    scale: _shield ? 1.0 : 1.0 + 0.07 * sin(_time * 6),
+                    child: Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(colors: [_jCyan.withOpacity(0.55), const Color(0xFF006064).withOpacity(0.85)]),
+                        border: Border.all(color: Colors.white.withOpacity(0.85), width: 2),
+                        boxShadow: [BoxShadow(color: _jCyan.withOpacity(_shield ? 0.2 : 0.6), blurRadius: 16)],
+                      ),
+                      child: const Icon(Icons.shield_rounded, color: Colors.white, size: 28),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (_bannerT > 0 && _banner != null)
             Positioned(
               top: 54,
@@ -4613,11 +4815,6 @@ class _JetPainter extends CustomPainter {
         _jetDrawItem(canvas, ip, it.kind, g._time);
       }
     }
-    if (g._bossState == 2) {
-      final a = g._beamsOn ? 1.0 : (((g._time * 10).floor() % 2 == 0) ? 0.4 : 0.15);
-      _jetDrawBeam(canvas, cam, cam + w, g._beamTop, g._time, a);
-      _jetDrawBeam(canvas, cam, cam + w, g._beamBot, g._time + 0.5, a);
-    }
     if (g._bossState != 0) {
       final slide = g._bossState == 1 ? (1 - min(1.0, g._bossT / 1.5)) * 220 : 0.0;
       final charging = g._missiles.any((m) => m.active && !m.fired);
@@ -4642,6 +4839,15 @@ class _JetPainter extends CustomPainter {
       if (f.glow) p.maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
       canvas.drawCircle(Offset(f.x, f.y), f.size * (0.4 + 0.6 * a), p);
     }
+    // Fantôme du meilleur joueur du jour (transparent, pseudo au-dessus)
+    final gp = g._ghostPos;
+    final gh = g.widget.ghost;
+    if (gp != null && gh != null && gp.dx > cam - 40 && gp.dx < cam + w + 40) {
+      canvas.saveLayer(null, Paint()..color = Colors.white.withOpacity(0.38));
+      _jetDrawPlayer(canvas, gp, _heroSafe(gh.hero), g._time, thrust: gp.dy < _jFloor - 1, scale: 1.05);
+      canvas.restore();
+      _jText(canvas, '👻 ${gh.name}', gp + const Offset(0, -62), 11, Colors.white70);
+    }
     // Joueur
     final feet = Offset(g._px, g._py);
     final blink = g._inv > 0 && !g._dead && ((g._time * 12).floor() % 2 == 0);
@@ -4650,6 +4856,8 @@ class _JetPainter extends CustomPainter {
         _jetDrawMecha(canvas, feet, g.widget.hero, g._time, g._onFloor);
       } else if (g._vehicle == 1) {
         _jetDrawGameBoy(canvas, feet, g.widget.hero, g._time, g._gbUp);
+      } else if (g._vehicle == 2) {
+        _jetDrawDragon(canvas, feet, g.widget.hero, g._time, g._dragonT);
       } else {
         _jetDrawPlayer(canvas, feet, g.widget.hero, g._time,
             thrust: (g._hold && !g._dead) || g._turbo > 0,

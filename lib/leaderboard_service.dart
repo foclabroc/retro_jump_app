@@ -340,6 +340,32 @@ class Leaderboard {
     }
   }
 
+  /// Fantôme Rétro Jet du défi du jour (envoyé après un nouveau meilleur score du jour).
+  static Future<void> uploadJetGhost(String day, int score, String data) async {
+    if (!configured || data.isEmpty) return;
+    try {
+      final dev = await deviceId();
+      final h = sha256.convert(utf8.encode(data)).toString();
+      await _rpc('submit_jet_ghost',
+          {'p_device': dev, 'p_day': day, 'p_score': score, 'p_data': data, 'p_sig': _sig([dev, 'jet', day, score, h])});
+    } catch (_) {}
+  }
+
+  /// Fantôme Rétro Jet du meilleur joueur du jour (hors soi-même) ; null si aucun ou hors ligne.
+  static Future<LbGhost?> topJetGhost(String day) async {
+    if (!configured) return null;
+    try {
+      final dev = await deviceId();
+      final res = await _rpc('jet_top_ghost', {'p_device': dev, 'p_day': day});
+      final row = res is List ? (res.isEmpty ? null : res.first) : res;
+      if (row is! Map || row['data'] == null) return null;
+      return LbGhost(row['name'] as String? ?? '?', (row['hero'] as num?)?.toInt() ?? 0,
+          (row['score'] as num?)?.toInt() ?? 0, base64Decode(row['data'] as String));
+    } catch (_) {
+      return null;
+    }
+  }
+
   static bool _flushing = false;
   /// Renvoie les scores restés en attente (appelé à l'ouverture du classement).
   static Future<void> flushPending() async {
