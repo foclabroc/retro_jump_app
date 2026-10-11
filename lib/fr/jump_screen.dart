@@ -18,6 +18,8 @@ import '../quiz_audio_service.dart';
 import '../leaderboard_service.dart';
 import 'in_app_file_picker.dart';
 
+part 'jet_game.dart'; // 2ᵉ jeu : Rétro Jet (appli Rétro Jump seulement)
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // RÉTRO JUMP — mini jeu de plateformes vertical (hors ligne)
 // Le héros rebondit de cartouche en cartouche. Commandes tactiles : maintenir
@@ -711,6 +713,7 @@ class _Plat {
   final int colorIdx;
   // Plateforme qui monte et descend : y = baseY + sin(temps × vSpeed + phase) × amp
   double baseY = 0, amp = 0, vSpeed = 0, phase = 0;
+  double prevY = 0; // position à l'image précédente (atterrissage sur une plateforme qui bouge)
   _Plat(this.x, this.y, this.type,
       {this.vx = 0, this.hasTurbo = false, this.hasShield = false, this.colorIdx = 0});
   bool get vertical => amp > 0;
@@ -827,6 +830,9 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   Set<String> _trHave = {};
   Map<String, int> _trSnap = {};
   bool _splashOn = true, _splashGone = false, _wheelAtStart = false;
+  bool _chooserOn = false, _chooserClosable = false; // carte de choix du jeu
+  bool _jumpSplashOn = false; // écran de démarrage de Rétro Jump
+  int _jetBest = 0, _jetCoins = 0; // record (m) et pièces de Rétro Jet
   List<LbEntry> _podium = const []; // 3 meilleurs scores (écran de démarrage)
   int _musicTrack = 0;
   Set<int> _musicUnlocked = {0};
@@ -870,15 +876,56 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   Future<void> _loadPodium() async {
     if (!Leaderboard.configured) return;
     final b = await Leaderboard.fetch('all', lbAllDay);
-    if (b == null || !mounted || !_splashOn) return;
+    if (b == null || !mounted) return;
     setState(() => _podium = b.top.where((e) => e.score > 0).take(3).toList());
   }
 
   void _endSplash() {
     if (!mounted || !_splashOn || _loading) return; // pas avant la fin du chargement
-    setState(() => _splashOn = false);
-    _afterSplash();
+    setState(() {
+      _splashOn = false;
+      _chooserOn = true;
+      _chooserClosable = false;
+    });
   }
+
+  /// Carte de choix : Rétro Jump (accueil habituel, puis roue / nouveautés).
+  void _chooseJump() {
+    QuizAudio.sfx('powerup');
+    setState(() {
+      _chooserOn = false;
+      _jumpSplashOn = true;
+    });
+  }
+
+  void _endJumpSplash() {
+    setState(() => _jumpSplashOn = false);
+    _afterSplash(); // nouveautés, record battu, roue (une seule fois)
+  }
+
+  /// Carte de choix : Rétro Jet (écran paysage), pièces et record relus au retour.
+  Future<void> _chooseJet() async {
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => _JetScreen(
+              haptics: _haptics,
+              hapticLvl: _hapticLvl,
+              onSave: _saveProgress,
+              onLoad: _loadProgress,
+            )));
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _jetBest = prefs.getInt(_kJetBestKey) ?? 0;
+      _jetCoins = prefs.getInt(_kJetCoinsKey) ?? 0;
+      _haptics = prefs.getBool(_kHapticsKey) ?? _haptics;
+      _hapticLvl = prefs.getInt(_kHapticLvlKey) ?? _hapticLvl;
+    });
+  }
+
+  void _openChooser() => setState(() {
+        _chooserOn = true;
+        _chooserClosable = true;
+      });
 
   /// Record Solo (parties normales) et rang, tels que connus du serveur.
   Future<void> _refreshSolo() async {
@@ -911,6 +958,10 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         ]),
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('🚀 Nouveau jeu : Rétro Jet ! Vole au jetpack dans un labo rétro, évite lasers et missiles, pilote le Mecha Manette… (choix du jeu au lancement, bouton « Accueil » pour changer)', style: const TextStyle(color: Colors.white, fontSize: 13.5, height: 1.35, fontWeight: FontWeight.w700)),
+            ),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text('🎨 Styles des pages Futuriste et Disco : fonds animés pour l’accueil et les menus (Boutique, 3 000 pièces).', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
@@ -1101,6 +1152,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       _uiSkin = (prefs.getInt(_kSkinKey) ?? 0).clamp(0, _skins.length - 1);
       if (!_skinUnlocked.contains(_uiSkin)) _uiSkin = 0;
       _haptics   = prefs.getBool(_kHapticsKey) ?? true;
+      _jetBest   = prefs.getInt(_kJetBestKey) ?? 0;
+      _jetCoins  = prefs.getInt(_kJetCoinsKey) ?? 0;
       QuizAudio.enabled = prefs.getBool(_kSoundKey) ?? true;
       _hapticLvl = (prefs.getInt(_kHapticLvlKey) ?? 1).clamp(0, 2);
       _avatar    = _avParse(prefs.getString(_kAvatarKey)) == null ? null : prefs.getString(_kAvatarKey);
@@ -1269,11 +1322,13 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     }
   }
 
+  /// Record enregistré dès la fin de partie : on compare à l'ancien record d'accueil.
   Future<void> _onGameFinished(int score) async {
     // Pièces et défis ont déjà été enregistrés par la partie : on recharge.
+    final prevBest = _bestScore; // record d'avant la partie (le nouveau est déjà enregistré par la partie)
     await _load();
     if (!mounted) return;
-    if (score <= _bestScore || _lastDaily) {
+    if (score <= prevBest || _lastDaily) {
       // Pas de record (donc pas de saisie du nom) : pseudo en ligne demandé une fois
       await _askPseudoOnce();
       return;
@@ -1799,7 +1854,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   Map<String, dynamic> _collectSave(SharedPreferences prefs) {
     final data = <String, dynamic>{};
     for (final k in prefs.getKeys()) {
-      if (!k.startsWith('jump_')) continue;
+      if (!k.startsWith('jump_') && !k.startsWith('jet_')) continue; // Rétro Jump + Rétro Jet
       final v = prefs.get(k);
       if (v is bool) {
         data[k] = {'t': 'b', 'v': v};
@@ -1900,7 +1955,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     );
     if (ok != true) return;
     final prefs = await SharedPreferences.getInstance();
-    await _clearProgress(prefs);
+    await _clearProgress(prefs, true);
     for (final e in data.entries) {
       final m = e.value;
       if (m is! Map) continue;
@@ -1931,9 +1986,10 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     _snack('Progression chargée', ok: true);
   }
 
-  Future<void> _clearProgress(SharedPreferences prefs) async {
+  /// Efface la progression de Rétro Jump ([withJet] : aussi celle de Rétro Jet, au chargement d'une sauvegarde).
+  Future<void> _clearProgress(SharedPreferences prefs, [bool withJet = false]) async {
     for (final k in prefs.getKeys().toList()) {
-      if (k.startsWith('jump_')) await prefs.remove(k);
+      if (k.startsWith('jump_') || (withJet && k.startsWith('jet_'))) await prefs.remove(k);
     }
   }
 
@@ -2623,6 +2679,20 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Row(children: [
+              // Retour à l'accueil (choix du jeu)
+              GestureDetector(
+                onTap: _openChooser,
+                child: Container(
+                  width: 38, height: 38,
+                  decoration: BoxDecoration(
+                    color: Colors.orangeAccent.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orangeAccent.withOpacity(0.5)),
+                  ),
+                  child: const Icon(Icons.home_rounded, color: Colors.orangeAccent, size: 22),
+                ),
+              ),
+              const SizedBox(width: 10),
               // Titre réduit au besoin pour laisser la place aux boutons
               Expanded(
                 child: GestureDetector(
@@ -2688,25 +2758,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                     border: Border.all(color: Colors.white.withOpacity(0.1)),
                   ),
                   child: const Icon(Icons.bar_chart_rounded, color: Colors.tealAccent, size: 20),
-                ),
-              )),
-              const SizedBox(width: 8),
-              _hdrItem('Son', StatefulBuilder(
-                builder: (ctx, setS) => GestureDetector(
-                  onTap: () => setS(() => _setSound(!QuizAudio.enabled)),
-                  child: Container(
-                    width: 36, height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
-                    ),
-                    child: Icon(
-                      QuizAudio.enabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                      color: QuizAudio.enabled ? Colors.white54 : Colors.white24,
-                      size: 18,
-                    ),
-                  ),
                 ),
               )),
             ]),
@@ -2895,6 +2946,28 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         ]),
       ),
        // Écran de démarrage (fondu à la fin du chargement)
+       if (_chooserOn)
+         Positioned.fill(
+           child: _GameChooser(
+             hero: _heroCode,
+             coins: _coins,
+             jetCoins: _jetCoins,
+             jumpBest: _bestScore,
+             jetBest: _jetBest,
+             canClose: _chooserClosable,
+             onJump: _chooseJump,
+             onJet: _chooseJet,
+             onClose: () => setState(() => _chooserOn = false),
+           ),
+         ),
+       if (_jumpSplashOn)
+         Positioned.fill(
+           child: GestureDetector(
+             onTap: _endJumpSplash,
+             child: _SplashView(hero: _heroCode, loading: false, podium: _podium, podiumTitle: 'MEILLEURS SCORES',
+                 title1: 'RÉTRO', title2: 'JUMP', loadingText: '', tapText: 'Touche pour jouer'),
+           ),
+         ),
        if (!_splashGone)
          Positioned.fill(
            child: IgnorePointer(
@@ -2907,8 +2980,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                },
                child: GestureDetector(
                  onTap: _endSplash,
-                 child: _SplashView(hero: _heroCode, loading: _loading, podium: _podium, podiumTitle: 'MEILLEURS SCORES',
-                     title1: 'RÉTRO', title2: 'JUMP', loadingText: 'Chargement…', tapText: 'Touche pour commencer'),
+                 child: _SplashView(hero: _heroCode, loading: _loading,
+                     title1: 'RÉTRO', title2: 'GAME', loadingText: 'Chargement…', tapText: 'Touche pour commencer'),
                ),
              ),
            ),
@@ -5763,19 +5836,42 @@ class _CollectionTile extends StatelessWidget {
         Column(children: [
           Expanded(child: Center(child: img)),
           const SizedBox(height: 4),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            for (int k = 0; k < _logoGoal; k++)
-              Container(
-                width: 7, height: 7,
-                margin: const EdgeInsets.symmetric(horizontal: 2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: k < count
-                      ? (done ? Colors.greenAccent : Colors.amberAccent)
-                      : Colors.white.withOpacity(0.12),
-                ),
-              ),
-          ]),
+          // Points de progression, réduits pour tenir dans la case ; au-delà de 10, une barre + compteur
+          SizedBox(
+            height: 9,
+            child: LayoutBuilder(builder: (_, c) {
+              final col = done ? Colors.greenAccent : Colors.amberAccent;
+              if (_logoGoal > 10) {
+                return Row(children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                          value: (count / _logoGoal).clamp(0.0, 1.0),
+                          minHeight: 5,
+                          backgroundColor: Colors.white.withOpacity(0.12),
+                          color: col),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text('${min(count, _logoGoal)}/$_logoGoal',
+                      style: TextStyle(color: col, fontSize: 8, fontWeight: FontWeight.w800, height: 1)),
+                ]);
+              }
+              final slot = c.maxWidth / _logoGoal;
+              final d = min(7.0, slot * 0.72);
+              return Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                for (int k = 0; k < _logoGoal; k++)
+                  Container(
+                    width: d, height: d,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: k < count ? col : Colors.white.withOpacity(0.12),
+                    ),
+                  ),
+              ]);
+            }),
+          ),
         ]),
         if (done)
           const Positioned(
@@ -6414,6 +6510,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
 
     // Plateformes mobiles / cassées
     for (final p in _plats) {
+      p.prevY = p.y;
       if (p.vertical) {
         if (!p.broken) p.y = p.baseY + sin(_time * p.vSpeed + p.phase) * p.amp;
       } else if (p.type == _PlatType.moving) {
@@ -6445,7 +6542,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
         // Plateforme sous le bas de l'écran (invisible) : pas de rebond
         if (p.y > _camY + _h - 6) continue;
         final overlap = (_x + _heroW * 0.35) > p.x && (_x - _heroW * 0.35) < p.x + _platW;
-        if (!overlap || prevY > p.y || _y < p.y) continue;
+        if (!overlap || prevY > max(p.y, p.prevY) + 1 || _y < p.y) continue;
         if (p.type == _PlatType.breakable) {
           p.broken = true;
           _burst(Offset(p.x + _platW / 2, p.y), Colors.brown, 10);
@@ -6880,6 +6977,14 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
 
   Future<void> _saveRun() async {
     await _saveStats();
+    // Record enregistré dès la fin de partie (le classement et la fiche sont à jour tout de suite ;
+    // l'écran d'accueil ne fait plus que féliciter / demander le nom)
+    if (widget.daily == null && _score > 0) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (_score > (prefs.getInt(_kBestScoreKey) ?? 0)) await prefs.setInt(_kBestScoreKey, _score);
+      } catch (_) {}
+    }
     final chals = _challengesFor(_chLevel);
     final newOnes = chals.where((c) => !_done.contains(c.id) && _challengeMet(c)).toList();
     final rewards = newOnes.fold<int>(0, (a, c) => a + c.reward);

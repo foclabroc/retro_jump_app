@@ -259,6 +259,87 @@ class Leaderboard {
     return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   }
 
+  // ── Rétro Jet ────────────────────────────────────────────────────────────
+  /// Distance Rétro Jet (mode « jet » = général, « jetd » = défi du jour) ; null si hors ligne.
+  static Future<LbRank?> submitJet({
+    required bool daily,
+    required int score,
+    required int hero,
+    required int time,
+    required String name,
+  }) async {
+    if (!configured || score <= 0) return null;
+    try {
+      final dev = await deviceId();
+      final mode = daily ? 'jetd' : 'jet';
+      final day = daily ? today() : lbAllDay;
+      final res = await _rpc('submit_jet_score', {
+        'p_device': dev,
+        'p_name': clean(name),
+        'p_mode': mode,
+        'p_day': day,
+        'p_score': score,
+        'p_hero': hero,
+        'p_time': time,
+        'p_sig': _sig([dev, mode, day, score, time, hero]),
+      });
+      return _rankFrom(res);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Défi semaine Rétro Jet : médailles du jour de la semaine, puis meilleure distance ; null si hors ligne.
+  static Future<LbBoard?> fetchJetWeek() async {
+    if (!configured) return null;
+    try {
+      final dev = await deviceId();
+      final rows = await _rpc('jet_week_medals', {'p_offset': 0, 'p_limit': 50});
+      final me = await _rpc('jet_week_medals_rank', {'p_device': dev});
+      return LbBoard([for (final r in (rows as List)) _weekEntry(r)], _rankFrom(me));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Défi général Rétro Jet (de tous les temps) : coupes, médailles, participation ; null si hors ligne.
+  static Future<LbBoard?> fetchJetGeneral() async {
+    if (!configured) return null;
+    try {
+      final dev = await deviceId();
+      final rows = await _rpc('jet_general', {'p_offset': 0, 'p_limit': 50});
+      final me = await _rpc('jet_general_rank', {'p_device': dev});
+      return LbBoard([for (final r in (rows as List)) _genEntry(r)], _rankFrom(me));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Statistiques Rétro Jet publiques (envoyées seulement si elles ont changé).
+  static String? _lastJetStats;
+  static Future<void> setJetStats(Map<String, int> stats) async {
+    if (!configured) return;
+    final data = jsonEncode(stats);
+    if (data == _lastJetStats) return;
+    try {
+      final dev = await deviceId();
+      final h = sha256.convert(utf8.encode(data)).toString();
+      await _rpc('set_jet_stats', {'p_device': dev, 'p_stats': data, 'p_sig': _sig([dev, 'jet', h])});
+      _lastJetStats = data;
+    } catch (_) {}
+  }
+
+  /// Fiche Rétro Jet d'un joueur ; null si hors ligne.
+  static Future<Map<String, dynamic>?> jetPlayerCard(String pid) async {
+    if (!configured || pid.isEmpty) return null;
+    try {
+      final r = await _rpc('jet_player_card', {'p_pid': pid, 'p_day': today()});
+      return r is Map ? Map<String, dynamic>.from(r) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   static bool _flushing = false;
   /// Renvoie les scores restés en attente (appelé à l'ouverture du classement).
   static Future<void> flushPending() async {

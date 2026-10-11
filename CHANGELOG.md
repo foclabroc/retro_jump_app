@@ -6,7 +6,31 @@ Historique des versions de l'application autonome (le jeu existe aussi dans [Foc
 
 ## v1.0.8 — Octobre 2026
 
-> Aucun changement côté serveur : le script Supabase v13 reste valable.
+> ⚠️ Script Supabase **v15** à relancer (classements et stats Rétro Jet).
+
+### 🚀 Nouveau jeu : Rétro Jet (façon Jetpack Joyride, en paysage)
+- Nouvel écran principal **« RÉTRO GAME by foclabroc »**, puis **carte de choix** du jeu, puis l'écran de démarrage de chaque jeu (avec son podium) ; bouton **Accueil** dans chaque jeu pour revenir au choix (dans Rétro Jump, à gauche du titre ; le bouton Son de l'en-tête passe dans les Réglages)
+- On **maintient** pour voler au jetpack, on **lâche** pour descendre, dans un labo rétro qui défile (écrans d'arcade, étagères de consoles, baies vitrées)
+- Obstacles : **lasers** fixes, en slalom ou tournants, **missiles** annoncés par une alerte, **bugs volants**
+- Bonus : **bouclier**, **aimant** à pièces, **turbo**, et caisse **véhicule** : **Mecha Manette** (saute et écrase les bugs) ou **Game Boy à gravité** (passe du sol au plafond) ; le véhicule encaisse un choc
+- **Jeu indépendant** : ses propres pièces, héros, jetpacks et décors (seuls l'avatar et le pseudo sont communs)
+- **Boutique Rétro Jet** : **héros** (certains ont un pouvoir dans Rétro Jet), **8 jetpacks** (flammes colorées, arc-en-ciel, or…), **5 décors** (Labo, Arcade néon, Station spatiale, Usine, Glacier), **musiques** à acheter et **améliorations** (aimant et turbo plus longs, bouclier au départ)
+- **Défi du jour** : fenêtre avec la liste des joueurs du jour, le compte à rebours, le choix rapide du **héros**, du **décor** et de la **musique**, et le bouton Jouer ; ni pièces ni pièces chance (jackpot), pouvoirs des héros et améliorations désactivés (les objets restent sur la piste)
+- **Options** : son, musique, vibrations et intensité, sauvegarde / chargement (commune aux deux jeux), règles ; **podium** des 3 meilleurs sur le menu
+- Jouabilité nerveuse mais précise : poussée et chute rapides, vitesse qui grimpe vite
+- **Pièces chance** 🍀 de temps en temps sur la piste : après un crash, chacune donne un tour de **jackpot** (+150 m, +250 m, **vie supplémentaire** jouable de suite, 50 / 75 / 100 pièces… ou rien). En défi du jour, pas de mètres en bonus
+- Onglets de la boutique et boutons Accueil / Options en couleur ; boutique plus large, tous les onglets visibles sans défiler
+- Ennemis en **pixel art** : bugs de Rétro Jump et **envahisseurs façon Space Invaders** (crabe, calmar)
+- **Traits des autres joueurs** dans le décor (pseudo + distance, top 15 du classement général ou du défi du jour)
+- **Boss tous les 500 m** : un envahisseur géant arrive, deux faisceaux électriques longent le plafond et le sol (interdit de les raser) et il tire **3 attaques de missiles** à esquiver (visée laser) ; vaincu = +50 pièces et 1 pièce chance
+- **Turbo pilotable** : on monte et on descend librement pendant le boost (toujours invincible)
+- **Classements comme dans Rétro Jump**, à part : **Défi du jour** (médaille d'or, d'argent, de bronze aux 3 premiers, médaille de participation aux autres), **Défi semaine** (coupes aux 3 joueurs les plus médaillés chaque lundi), **Défi général** (toutes les récompenses depuis le début) et **Solo** ; départ des médailles le lundi 12/10/2026
+- Temps restant affiché en haut du classement (fin du défi du jour, remise des coupes) ; seule la liste des joueurs défile
+- **Fiche joueur** Rétro Jet en touchant un nom : palmarès, rangs (jour, semaine, général, Solo), parties, distance, boss, jackpots, collection
+- Ligne **pseudo** en haut du classement (touche pour le modifier) et bouton **Reset** dans les Options (efface Rétro Jet seulement)
+- **Quêtes** (bouton du menu) : **9 défis** à réussir en une partie (distance, sans bonus, boss, pièces, turbos, véhicules, jackpot), par **séries** de plus en plus dures avec bonus de série ; **42 trophées** à vie (bronze 25, argent 75, or 200 pièces), progression affichée ; récompenses montrées en fin de partie
+- **Statistiques** à vie (bouton Stats du menu) : parties, record, distance cumulée et moyenne, temps de jeu, pièces, ennemis écrasés, boss vaincus, turbos, véhicules, boucliers, pièces chance, jackpots, vies gagnées, crashs
+- Repère du record en jeu
 
 ### 🎨 Style des pages
 - 2 nouveaux styles pour l'interface : **Futuriste** (étoiles, anneaux HUD, sol quadrillé qui défile, accent cyan) et **Disco** (boule à facettes, faisceaux colorés, piste de danse lumineuse, accent rose)
@@ -19,6 +43,7 @@ Historique des versions de l'application autonome (le jeu existe aussi dans [Foc
 - Nouveau bouton **Fermer**
 
 ### 🕹️ Jeu
+- **Record enregistré dès la fin de partie** (Rétro Jump et Rétro Jet) : classement, fiche joueur, podium et repères à jour tout de suite, sans repasser par l'accueil
 - **Plateformes verticales** qui montent et descendent
 - **Son** au déclenchement du turbo
 - Le bouton principal devient **Jouer Solo**

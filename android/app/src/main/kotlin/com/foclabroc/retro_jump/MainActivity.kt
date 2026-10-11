@@ -418,6 +418,22 @@ object ChipSynth {
         // Continue : relance montante
         "continue" to pcm(seq(arp(intArrayOf(60, 67, 72, 76, 79), 70, 0.24, SQUARE, 0.5),
                               gap(20), tone(midi(84), midi(84), 260, 0.24, SQUARE, 0.5, decay = 2.0))),
+        // Rétro Jet — alerte missile : deux bips aigus
+        "alarm" to pcm(mix(seq(tone(620.0, 620.0, 150, 0.45, SQUARE, 0.5, decay = 0.5), gap(70),
+                               tone(620.0, 620.0, 150, 0.45, SQUARE, 0.5, decay = 0.5), gap(70),
+                               tone(520.0, 520.0, 240, 0.45, SQUARE, 0.5, decay = 0.7)),
+                           seq(tone(310.0, 310.0, 150, 0.35, TRIANGLE, decay = 0.5), gap(70),
+                               tone(310.0, 310.0, 150, 0.35, TRIANGLE, decay = 0.5), gap(70),
+                               tone(260.0, 260.0, 240, 0.35, TRIANGLE, decay = 0.7)))),
+        // Rétro Jet — départ du missile : sifflement descendant
+        "missile" to pcm(mix(tone(1800.0, 500.0, 420, 0.16, TRIANGLE, decay = 1.5),
+                             tone(4000.0, 1500.0, 420, 0.10, NOISE, decay = 1.5))),
+        // Rétro Jet — électrocution sur un laser : grésillement
+        "zap" to pcm(mix(tone(90.0, 70.0, 480, 0.30, SQUARE, 0.5, decay = 1.2, vibrato = 60.0),
+                         tone(5000.0, 2000.0, 480, 0.16, NOISE, decay = 1.5))),
+        // Rétro Jet — explosion (missile, véhicule)
+        "explode" to pcm(mix(tone(2500.0, 120.0, 650, 0.32, NOISE, decay = 1.8),
+                             tone(140.0, 45.0, 650, 0.30, SQUARE, 0.5, decay = 2.0))),
     )
 
 }
